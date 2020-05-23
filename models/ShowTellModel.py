@@ -115,7 +115,7 @@ class ShowTellModel(CaptionModel):
 
 #     def forward(self, fc_feats, seq, paragraph, noun_pos, ner_pos): # extra input - ner_pos: positions of nouns/NEs
 #     def forward(self, fc_feats, seq, paragraph, noun_pos): # extra input - ner_pos: positions of nouns
-    def forward(self, fc_feats, seq, paragraph):
+    def forward(self, fc_feats, seq, paragraph, pretrained_bert=None):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
         encoder_hidden = self.init_encoder_hidden(batch_size)
@@ -123,7 +123,11 @@ class ShowTellModel(CaptionModel):
         # Encode the input paragraph
         encoder_state = []
         for t in range(self.config['max_par_len']):
-            x_t = self.embed(paragraph[:, t]).unsqueeze(1)
+            if pretrained_bert is not None:
+                with torch.no_grad():
+                    x_t = pretrained_bert.get_input_embeddings(paragraph[:, t]).unsqueeze(1)
+            else:
+                x_t = self.embed(paragraph[:, t]).unsqueeze(1)
 #             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
 #             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1)) # additional emphasis for named entities
             output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
@@ -161,7 +165,11 @@ class ShowTellModel(CaptionModel):
                 # if i >= 2 and seq[:, i-1].data.sum() == 0:
                 #     break
                 # x_personality = self.pers_embed(personality)
-                xt = self.embed(it).unsqueeze(1)
+                if pretrained_bert is not None:
+                    with torch.no_grad():
+                        xt = pretrained_bert.get_input_embeddings(it).unsqueeze(1)
+                else:
+                    xt = self.embed(it).unsqueeze(1)
 
             output, decoder_hidden = self.decoder(xt, decoder_hidden)
 
@@ -186,7 +194,7 @@ class ShowTellModel(CaptionModel):
 
         return logprobs, decoder_hidden
 
-    def sample_beam(self, fc_feats, paragraph, beam_size, opt={}):
+    def sample_beam(self, fc_feats, paragraph, beam_size, opt={}, pretrained_bert=None):
         opt['beam_size'] = beam_size
         batch_size = fc_feats.size(0)
         # otherwise this corner case causes a few headaches down the road.
@@ -225,7 +233,7 @@ class ShowTellModel(CaptionModel):
 #     def sample(self, fc_feats, paragraph, noun_pos, ner_pos, sample_max=True, temperature=1.0): # extra input - noun_pos, ner_pos- positions of nouns/NEs in paragraph
 #     def sample(self, fc_feats, paragraph, noun_pos, sample_max=True, temperature=1.0): # extra input - noun_pos: positions of nouns in paragraph
 
-    def sample(self, fc_feats, paragraph, sample_max=True, temperature=1.0):
+    def sample(self, fc_feats, paragraph, sample_max=True, temperature=1.0, pretrained_bert=None, tokenizer=None):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
         encoder_hidden = self.init_encoder_hidden(batch_size)
@@ -233,7 +241,11 @@ class ShowTellModel(CaptionModel):
         # Encode the input paragraph
         encoder_state = []
         for t in range(self.config['max_par_len']):
-            x_t = self.embed(paragraph[:, t]).unsqueeze(1)
+            if pretrained_bert is not None:
+                with torch.no_grad():
+                    x_t = pretrained_bert.get_input_embeddings(paragraph[:, t]).unsqueeze(1)
+            else:
+                x_t = self.embed(paragraph[:, t]).unsqueeze(1)
 #             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
 #             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1))
             output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
@@ -246,11 +258,16 @@ class ShowTellModel(CaptionModel):
             if t == 0:
                 xt = self.img_embed(fc_feats).unsqueeze(1)
             elif t == 1: # input <sos>
-                it = torch.ones(batch_size).long().cuda()
-                # x_personality = self.pers_embed(Variable(personality,
-                #                                                  requires_grad=False))
-                xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
-                # xt = torch.cat((x_word, x_personality), 2)
+                if pretrained_bert is not None and tokenizer is not None:
+                    it = torch.LongTensor([tokenizer.bos_token_id]*batch_size).long().cuda()
+                    with torch.no_grad():
+                        xt = pretrained_bert.get_input_embeddings(it).unsqueeze(1)
+                else:
+                    it = torch.ones(batch_size).long().cuda()
+                    # x_personality = self.pers_embed(Variable(personality,
+                    #                                                  requires_grad=False))
+                    xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
+                    # xt = torch.cat((x_word, x_personality), 2)
             else:
                 if sample_max:
                     sampleLogprobs, it = torch.max(logprobs.data, 1)
@@ -272,7 +289,11 @@ class ShowTellModel(CaptionModel):
 
                 # x_personality = self.pers_embed(Variable(personality,
                 #                                                  requires_grad=False))
-                xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
+                if pretrained_bert is not None:
+                    with torch.no_grad():
+                        xt = pretrained_bert.get_input_embeddings(it).unsqueeze(1)
+                else:
+                    xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
                 # xt = torch.cat((x_word, x_personality), 2)
 
             if t >= 2:

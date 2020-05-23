@@ -102,21 +102,21 @@ def init_vocab(filename):
     return vocab, savedir
 
 
-def get_datagen(vocab):
+def get_datagen(vocab, tokenizer):
     
-    train_set = Dataset(os.path.join(data_dir, train_data_file), vocab)
+    train_set = Dataset(os.path.join(data_dir, train_data_file), vocab, tokenizer)
     train_generator = DataLoader(
             train_set, batch_size = config['train_batch_size'],
             shuffle=True, collate_fn= collate_fn, 
             num_workers=config['num_workers'])
     
-    val_set = Dataset(os.path.join(data_dir, val_data_file), vocab)
+    val_set = Dataset(os.path.join(data_dir, val_data_file), vocab, tokenizer)
     val_generator = DataLoader(
             val_set, batch_size = config['dev_batch_size'],
             shuffle=False, collate_fn= collate_fn, 
             num_workers=config['num_workers'])
     
-    test_set = Dataset(os.path.join(data_dir, test_data_file), vocab)
+    test_set = Dataset(os.path.join(data_dir, test_data_file), vocab, tokenizer)
     test_generator = DataLoader(
             test_set, batch_size = config['dev_batch_size'],
             shuffle=False, collate_fn= collate_fn, 
@@ -171,7 +171,7 @@ def init_models(vocab):
     return g_net,  g_optim # d_net, lang_eval, rollout,
 
 
-def pretrain_generator(g_net, traindata):
+def pretrain_generator(g_net, traindata, pretrained_bert=None, tokenizer=None):
     '''
     Pretraining part of the gen using MLE 
     Args:
@@ -191,7 +191,7 @@ def pretrain_generator(g_net, traindata):
     elif args.gen_type == 'showtell':
 #         logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos, ner_pos)
 #         logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos)
-        logprobs = g_net.forward(img_vec, gt_caps, paragraph)
+        logprobs = g_net.forward(img_vec, gt_caps, paragraph, pretrained_bert)
         # print(logprobs.size())
         _, seq_len, _ = logprobs.size()
         target = gt_caps[:, 1:].reshape(-1) # Shift the target by 1 place
@@ -208,7 +208,7 @@ def pretrain_generator(g_net, traindata):
 
 
 # ***** Main function to train the GAN model ********
-def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab):
+def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab, pretrained_bert=None, tokenizer=None):
     '''
     Main function to train the GAN model
     Args:
@@ -254,7 +254,7 @@ def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab):
         # train model
         # Pre-Train Generator
         if args.pretrainG:
-            batch_loss_g = pretrain_generator(g_net, train_data)
+            batch_loss_g = pretrain_generator(g_net, train_data, pretrained_bert, tokenizer)
             # batch_loss_d = 0.0
             giter += 1 
             
@@ -283,7 +283,7 @@ def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab):
 
 # ***** Inference for the GAN model ********
 def val_model(g_net, data_generator, save_dir, epoch, vocab, 
-              batchsize, writer, valiter=None):
+              batchsize, writer, valiter=None, pretrained_bert=None, tokenizer=None):
     
     tot_val_loss = 0.0    
     num_batches = 0
@@ -324,7 +324,7 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
                 elif args.gen_type == 'showtell':
 #                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos, batch_ner_pos)
 #                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos)
-                    gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph)
+                    gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, pretrained_bert, tokenizer)
                     val_loss = -torch.mean(gen_seq_logprob)
                     tot_val_loss += val_loss
             elif args.beam:
@@ -399,9 +399,30 @@ def main(flags):
     # generate new vocab or load existing vocab
 #     vocab, save_dir = init_vocab(os.path.join(data_dir, train_data_file))
     vocab, save_dir = init_vocab(os.path.join(data_dir, whole_data_file))
+
+    if args.use_bert_tokenizer:
+        # Import pre-trained BERT tokenizer
+        from transformers import BertTokenizer, BertModel
+        if args.train or args.train_all or args.prerainG:
+            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+            special_tokens_dict = {'bos_token': '<sos>', 'eos_token': '<eos>'}
+            num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
+            print("INFO: {} new token added to the tokenizer".format(num_added_toks))
+            pretrained_bert = BertModel.from_pretrained('bert-base-uncased')
+            pretrained_bert.resize_token_embeddings(len(tokenizer))
+
+            # Save and Freeze the tokenizer and the pretrained BERT
+            pretrained_bert.save_pretrained(args.save_dir)
+            tokenizer.save_pretrained(args.save_dir)
+        elif args.eval:
+            pretrained_bert = BertModel.from_pretrained(args.save_dir)
+            tokenizer = BertTokenizer.from_pretrained(args.save_dir)
+    else:
+        tokenizer = None
+
     
     # initalize training, val and test data generators
-    train_generator, val_generator, test_generator = get_datagen(vocab)
+    train_generator, val_generator, test_generator = get_datagen(vocab, tokenizer)
     
     # get the models, optimizers, config, rollout and langeval initialized
     g_net,  g_optim = init_models(vocab) #d_net, lang_eval, rollout,
@@ -436,8 +457,12 @@ def main(flags):
     
     if args.eval != '':
         print('inference mode')
-        
-        _,_ = val_model(g_net, test_generator, save_dir, g_epoch, vocab, 
+
+        if args.use_bert_tokenizer:
+            _, _ = val_model(g_net, test_generator, save_dir, g_epoch, vocab,
+                             config['dev_batch_size'], g_writer, pretrained_bert, tokenizer)
+        else:
+            _,_ = val_model(g_net, test_generator, save_dir, g_epoch, vocab,
                         config['dev_batch_size'], g_writer)
 
     else:
@@ -455,13 +480,21 @@ def main(flags):
             print("Epoch = {}".format(epoch))
             
             # train model for 1 epoch
-            (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net, #d_net,
-                                               #rollout, lang_eval,
-                                               g_epoch, #d_epoch,
-                                               g_niter, #d_niter,
-                                               g_writer, #d_writer,
-                                               vocab)            
-            # validate model every val_freq epochs
+            if args.use_bert_tokenizer:
+                (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net, #d_net,
+                                                   #rollout, lang_eval,
+                                                   g_epoch, #d_epoch,
+                                                   g_niter, #d_niter,
+                                                   g_writer, #d_writer,
+                                                   vocab, pretrained_bert, tokenizer)
+            else:
+                (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net,  # d_net,
+                                                                # rollout, lang_eval,
+                                                                g_epoch,  # d_epoch,
+                                                                g_niter,  # d_niter,
+                                                                g_writer,  # d_writer,
+                                                                vocab)
+                # validate model every val_freq epochs
             # if epoch % args.val_freq == 0 and (args.pretrainG or args.train):
             #
             #     g_val_epoch += 1

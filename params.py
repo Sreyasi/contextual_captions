@@ -72,6 +72,10 @@ def parse_args():
     parser.add_argument('--grad_clip', type=float, default=0.1,
                         help='clip gradients at this value')
 
+    # Tokenizer
+    parser.add_argument('--use_bert_tokenizer', action='store_true', default=False,
+                        help='Switch this flag on to use bert tokenizer')
+
     # directories and file paths parameters
     parser.add_argument('--savedir', default='./trained_models/', type=str,
                         help='directory to save model checkpoints')

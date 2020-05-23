@@ -239,11 +239,12 @@ class ProcessSentence():
 
 
 class Dataset(Dataset):
-    def __init__(self, data_file, vocab):
+    def __init__(self, data_file, vocab, tokenizer=None):
         with open(data_file, 'r') as f:
             self.data = json.load(f, encoding='utf8')
         self.v = vocab
         self.preprocess = ProcessSentence(self.v)
+        self.tokenizer = tokenizer
 
     def __len__(self):
         return len(self.data)
@@ -260,11 +261,24 @@ class Dataset(Dataset):
     
             # get abstract caption
             abs_cap = self.data[idx]['caption']
-            abstract, length = self.preprocess.vectorize_caption(abs_cap)
+            if self.tokenizer is not None:
+                tokens = self.tokenizer.tokenize(abs_cap)
+                abstract = self.tokenizer.convert_tokens_to_ids(tokens)
+                abstract = [self.tokenizer.bos_token_id] + abstract + [self.tokenizer.eos_token_id]
+                length = len(abstract)
+            else:
+                abstract, length = self.preprocess.vectorize_caption(abs_cap)
             abstract = torch.LongTensor(abstract)
             
             # get paragraph
-            paragraph, par_len = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
+            if self.use_bert_tokenizer:
+                tokens = self.tokenizer.tokenize(self.data[idx]['text'])
+                paragraph = self.tokenizer.convert_tokens_to_ids(tokens)
+                paragraph = [self.tokenizer.bos_token_id] + paragraph + [self.tokenizer.eos_token_id]
+                par_len = len(paragraph)
+            else:
+                paragraph, par_len = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
+
             # get paragraph and noun/ner position vectors (if word is a noun/ner, 1, else 0)
 #             paragraph, par_len, noun_pos_vec, ner_pos_vec = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
             # get paragraph and noun position vectors (if word is a noun, 1, else 0)
