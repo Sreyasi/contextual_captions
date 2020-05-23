@@ -35,9 +35,9 @@ def init_config():
     global config
     config = json.load(open(args.config_file, 'r'))
     
-    global data_dir, image_data_dir
+    global data_dir#, image_data_dir
     data_dir = config['data_dir']
-    image_data_dir = config['image_data_dir']
+#     image_data_dir = config['image_data_dir']
     
     global train_data_file, test_data_file, val_data_file, whole_data_file
     train_data_file = config['train_data_file']
@@ -79,7 +79,7 @@ def init_vocab(filename):
         # get save directory
         curtime = datetime.now()
         timestamp = curtime.strftime('%Y_%m_%d_%H_%M_%S')
-        savedir = '{}run{}_{}'.format(args.savedir, str(len(data)), timestamp)
+        savedir = '{}run{}_{}_with_ne_30000_one_overlap'.format(args.savedir, str(len(data)), timestamp)
         
         if not os.path.exists(savedir):
             os.makedirs(savedir)
@@ -183,13 +183,15 @@ def pretrain_generator(g_net, traindata):
         loss            : generator loss for the input batch of samples
     '''
 #     image_files, img_vec, gt_caps, paragraph, noun_pos, ner_pos = traindata
-    image_files, img_vec, gt_caps, paragraph, noun_pos = traindata
+#     image_files, img_vec, gt_caps, paragraph, noun_pos = traindata
+    image_files, img_vec, gt_caps, paragraph = traindata
     # print(paragraph.size())
     if args.gen_type == 'ourshowtell':
         batch_loss = g_net((img_vec, gt_caps, paragraph), args)
     elif args.gen_type == 'showtell':
 #         logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos, ner_pos)
-        logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos)
+#         logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos)
+        logprobs = g_net.forward(img_vec, gt_caps, paragraph)
         # print(logprobs.size())
         _, seq_len, _ = logprobs.size()
         target = gt_caps[:, 1:].reshape(-1) # Shift the target by 1 place
@@ -230,8 +232,10 @@ def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab):
     epoch_loss_d = 0.0
 #     for (imagefiles, batch_images, batch_abstract,
 #          batch_paragraph, batch_noun_pos_vec, batch_ner_pos_vec) in tqdm(train_data_generator):
+#     for (imagefiles, batch_images, batch_abstract,
+#          batch_paragraph, batch_noun_pos_vec) in tqdm(train_data_generator):
     for (imagefiles, batch_images, batch_abstract,
-         batch_paragraph, batch_noun_pos_vec) in tqdm(train_data_generator):
+         batch_paragraph) in tqdm(train_data_generator):
 
         # use cuda
         if USE_CUDA:
@@ -239,11 +243,12 @@ def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab):
             batch_abstract = batch_abstract.cuda()
             # batch_unpaired = batch_unpaired.cuda()
             batch_paragraph = batch_paragraph.cuda()
-            batch_noun_pos_vec = batch_noun_pos_vec.cuda()
+#             batch_noun_pos_vec = batch_noun_pos_vec.cuda()
 #             batch_ner_pos_vec = batch_ner_pos_vec.cuda()
         
 #         train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph, batch_noun_pos_vec, batch_ner_pos_vec) #batch_unpaired
-        train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph, batch_noun_pos_vec) #batch_unpaired
+#         train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph, batch_noun_pos_vec) #batch_unpaired
+        train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph) #batch_unpaired
 
         
         # train model
@@ -300,13 +305,14 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
 #     data_generator = list(filter(lambda x : x is not None, data_generator))
     
 #     for (batch_images_file_names, batch_image_feats, batch_abstract, batch_paragraph, batch_noun_pos, batch_ner_pos) in data_generator:
-    for (batch_images_file_names, batch_image_feats, batch_abstract, batch_paragraph, batch_noun_pos) in data_generator:
+#     for (batch_images_file_names, batch_image_feats, batch_abstract, batch_paragraph, batch_noun_pos) in data_generator:
+    for (batch_images_file_names, batch_image_feats, batch_abstract, batch_paragraph) in data_generator:
 
         if USE_CUDA:
             batch_image_feats = batch_image_feats.cuda()
             batch_abstract = batch_abstract.cuda()
             batch_paragraph = batch_paragraph.cuda()
-            batch_noun_pos = batch_noun_pos.cuda()
+#             batch_noun_pos = batch_noun_pos.cuda()
 #             batch_ner_pos = batch_ner_pos.cuda()
             
             if args.greedy:
@@ -317,8 +323,8 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
                     tot_val_loss += val_loss
                 elif args.gen_type == 'showtell':
 #                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos, batch_ner_pos)
-#                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph)
-                    gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos)
+#                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos)
+                    gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph)
                     val_loss = -torch.mean(gen_seq_logprob)
                     tot_val_loss += val_loss
             elif args.beam:

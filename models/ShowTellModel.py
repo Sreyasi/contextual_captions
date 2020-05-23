@@ -14,9 +14,9 @@ class Attention(nn.Module):
         self.rnn_size = config['rnn_hidden_dim']
         self.W_h = nn.Linear(self.rnn_size*2, self.rnn_size, bias=False)
         self.W_s = nn.Linear(self.rnn_size, self.rnn_size, bias=False)
-#         self.b_attn = nn.Parameter(torch.zeros(self.rnn_size))
-#         self.v = nn.Linear(self.rnn_size, 1, bias=False)
-        self.v = nn.Linear(self.rnn_size, 1, bias=True)
+        self.b_attn = nn.Parameter(torch.zeros(self.rnn_size))
+        self.v = nn.Linear(self.rnn_size, 1, bias=False)
+#         self.v = nn.Linear(self.rnn_size, 1, bias=True)
         self.init_weights()
 
     def init_weights(self):
@@ -34,8 +34,8 @@ class Attention(nn.Module):
         decoder_ctx = decoder_ctx.expand_as(encoder_ctx)
         # print(decoder_ctx.size())
         # print(self.b_attn.size())
-#         attn_energy = self.v(encoder_ctx + decoder_ctx + self.b_attn.expand_as(decoder_ctx)).squeeze(2)
-        attn_energy = self.v(encoder_ctx + decoder_ctx).squeeze(2) #TODO
+        attn_energy = self.v(encoder_ctx + decoder_ctx + self.b_attn.expand_as(decoder_ctx)).squeeze(2)
+#         attn_energy = self.v(encoder_ctx + decoder_ctx).squeeze(2) #TODO
         # print(attn_energy.size())
         attn_weights = F.softmax(attn_energy, dim=1).unsqueeze(2)
         # TODO: hard thresholding - if prob less than x, don't consider
@@ -71,7 +71,7 @@ class ShowTellModel(CaptionModel):
                 self.num_layers, bias=False, dropout=self.drop_prob_rnn,
                 batch_first=True)
         self.embed = nn.Embedding(self.vocab_size, self.emb_dim)
-        self.noun_embed = nn.Embedding(2, self.emb_dim) # binary noun_pos_vec vector projected to emb_dim
+#         self.noun_embed = nn.Embedding(2, self.emb_dim) # binary noun_pos_vec vector projected to emb_dim
 #         self.ner_embed = nn.Embedding(2, self.emb_dim) # binary ner_pos_vec vector projected to emb_dim
         # self.pers_embed = nn.Embedding(self.personality_size,
         #                                self.emb_dim)
@@ -114,8 +114,8 @@ class ShowTellModel(CaptionModel):
                                        self.rnn_size).zero_(), requires_grad=True)
 
 #     def forward(self, fc_feats, seq, paragraph, noun_pos, ner_pos): # extra input - ner_pos: positions of nouns/NEs
-#     def forward(self, fc_feats, seq, paragraph): # TODO: extra input - ner_pos: positions of nouns/NEs
-    def forward(self, fc_feats, seq, paragraph, noun_pos): # extra input - ner_pos: positions of nouns
+#     def forward(self, fc_feats, seq, paragraph, noun_pos): # extra input - ner_pos: positions of nouns
+    def forward(self, fc_feats, seq, paragraph):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
         encoder_hidden = self.init_encoder_hidden(batch_size)
@@ -124,7 +124,7 @@ class ShowTellModel(CaptionModel):
         encoder_state = []
         for t in range(self.config['max_par_len']):
             x_t = self.embed(paragraph[:, t]).unsqueeze(1)
-            x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
+#             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
 #             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1)) # additional emphasis for named entities
             output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
             encoder_state.append(output)
@@ -223,10 +223,9 @@ class ShowTellModel(CaptionModel):
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
 #     def sample(self, fc_feats, paragraph, noun_pos, ner_pos, sample_max=True, temperature=1.0): # extra input - noun_pos, ner_pos- positions of nouns/NEs in paragraph
-#     def sample(self, fc_feats, paragraph, sample_max=True, temperature=1.0): # extra input - noun_pos, ner_pos- positions of nouns/NEs in paragraph
-    def sample(self, fc_feats, paragraph, noun_pos, sample_max=True, temperature=1.0): # extra input - noun_pos: positions of nouns in paragraph
+#     def sample(self, fc_feats, paragraph, noun_pos, sample_max=True, temperature=1.0): # extra input - noun_pos: positions of nouns in paragraph
 
-
+    def sample(self, fc_feats, paragraph, sample_max=True, temperature=1.0):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
         encoder_hidden = self.init_encoder_hidden(batch_size)
@@ -235,7 +234,7 @@ class ShowTellModel(CaptionModel):
         encoder_state = []
         for t in range(self.config['max_par_len']):
             x_t = self.embed(paragraph[:, t]).unsqueeze(1)
-            x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
+#             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
 #             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1))
             output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
             encoder_state.append(output)

@@ -77,6 +77,8 @@ def parse_args():
                         help='directory to save model checkpoints')
     parser.add_argument('--config_file', default='./config.json', type=str,
                         help='path to config')
+    parser.add_argument('--result_file', default='', type=str,
+                        help='path to result file for evaluation')
 
     FLAG = parser.parse_args()
     assert FLAG.greedy or FLAG.beam

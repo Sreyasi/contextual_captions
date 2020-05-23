@@ -78,7 +78,7 @@ def get_data(removedimages, numsamples, seenimages):
     print('currently {} images already seen.'.format(len(seenimages)))
     output_data = []
     curr_seen_images = set()
-    with open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/whole_data.json', 'r') as f:
+    with open('/GW/multimodal_embeddings/static00/reddit/praw/data/without_ne/whole_processed.json', 'r') as f:
         data = json.load(f)
         
         # shuffle data
@@ -97,6 +97,7 @@ def get_data(removedimages, numsamples, seenimages):
             image_hash = doc['image_hash']
             text = doc['text']
             caption = doc['caption']
+            id = doc['id']
             
             # do not consider samples with broken images
             if image_hash in removedimages:
@@ -173,8 +174,8 @@ def get_data(removedimages, numsamples, seenimages):
             print('num samples processed: {}/{}'.format(count, totcount), 
                   end='\r')
         print('num samples processed: {}/{}'.format(count, totcount))
-        print('no of samples removed: {}'.format(removecount))
-        print('no. of samples with template bot text: ', mod_text_count)
+        print('num samples removed: {}'.format(removecount))
+        print('num samples with template bot text: ', mod_text_count)
 #         print('\nno of samples with text less than 50 words: ', text_length_count_less_70)
 #         print('\nno of samples with text greater than 500 words: ', text_length_count_greater_500)
         print('average text length: ', (avg_text_length/count))
@@ -183,15 +184,17 @@ def get_data(removedimages, numsamples, seenimages):
             
 def main_func(flags):
      
-    if flags.num_samples == 100000:
-        num_samples = [100000, 5000, 5000]
-    elif flags.num_samples == 10:
-        num_samples = [10, 5, 5]
+    if flags.num_samples == 30000:
+        num_samples = [30000, 8000, 8000]
+    elif flags.num_samples == 80000:
+        num_samples = [80000, 10000, 10000]
+    elif flags.num_samples == 20000:
+        num_samples = [20000, 3000, 3000]
     elif flags.num_samples == 0:
         num_samples = [None, None, None]
         
-#     process = ['train', 'val', 'test']
-    process = ['whole']
+    process = ['train', 'test', 'val']
+#     process = ['whole']
       
     if flags.extract_feat:
         print('extracting image features...')
@@ -238,10 +241,10 @@ def main_func(flags):
         
         # all jsons files from reddit scrape
         print('loading existing jsons...')
-        json_path = '/GW/multimodal_embeddings/static00/reddit/praw/downloads/jsons'
+        json_path = '/GW/multimodal_embeddings/static00/reddit/praw/downloads/jsons_new'
         jsons = [f for f in os.listdir(json_path) if os.path.isfile(os.path.join(json_path, f))]
         # saving this list so as not to process them later again
-        with open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/processed_jsons_2.txt', 'w') as jsons_processed:
+        with open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/pics/processed_jsons_new.txt', 'w') as jsons_processed:
             jsons_processed.write('\n'.join(jsons))
             
         print('reading {} json files from reddit scrape.'.format(len(jsons)))
@@ -309,17 +312,17 @@ def main_func(flags):
                 len(allimages), len(removedimages)))
         
         # store data for all the jsons processed and corresponding image features extracted
-        all_json_out = open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/whole_data.json', 'w+', encoding='utf8')
+        all_json_out = open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/pics/whole_data_new.json', 'w+', encoding='utf8')
         json.dump(all_json, all_json_out)
 
         json.dump(list(allimages), 
-                   open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/processed_images.json', 'w+', encoding='utf8'))
+                   open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/pics/processed_images_new.json', 'w+', encoding='utf8'))
         json.dump(list(removedimages), 
-                  open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/removed_images.json', 'w+', encoding='utf8'))
+                  open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/pics/removed_images_new.json', 'w+', encoding='utf8'))
     else:
           
         removedimages = json.load(
-                open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/removed_images.json', 'r'))
+                open('/GW/multimodal_embeddings/static00/reddit/praw/downloads/pics/removed_images.json', 'r'))
 
         # prepare data
         prev_output_data = []
@@ -337,7 +340,7 @@ def main_func(flags):
                 op_file = proc + '_processed'
 #                 ip_file = proc
             
-            fout = open('/GW/multimodal_embeddings/static00/reddit/praw/data/' + op_file + '.json', 'w+', encoding='utf8')
+            fout = open('/GW/multimodal_embeddings/static00/reddit/praw/data/without_ne/' + op_file + '.json', 'w+', encoding='utf8')
       
             # store data selected in each idx (train/val/test) and remove them from orig data
             output_data, prev_seen_images, removedimages = get_data(removedimages, numsamp, seenimages)
