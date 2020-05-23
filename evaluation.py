@@ -7,6 +7,7 @@ from coco_caption.pycocoevalcap.meteor.meteor import Meteor
 import json
 import os
 import numpy as np
+from params import parse_args
 
 
 class AutoEval():
@@ -42,22 +43,26 @@ class AutoEval():
 
         rouge_avg_score, rouge_scores = self.rouge.compute_score(sent_gt, sent_gen)
         scores['ROUGE-L'] = rouge_avg_score * 100
-#         print(rouge_avg_score)
 
         cider_avg_score, cider_scores = self.cider.compute_score(sent_gt, sent_gen)
         scores['CIDEr'] = cider_avg_score * 100 # We didn't multiply by 10 inside cider compute_score.
         # So, to make it comparable with the Shuster et al., we multiply it by 100.
         # Shuster et al. used the CIDEr in COCO caption which was already multiplied by 10.
         # We speculate that they multipled it again by 10 to get their results.
-        #print(cider_avg_score)
 
         spice_avg_score, spice_scores = self.spice.compute_score(sent_gt, sent_gen)
         scores['SPICE'] = spice_avg_score * 10
-#         print(spice_avg_score)
+        print('BLEU-1: ', str(round(scores['BLEU-1'], 2)))
+        print('BLEU-2: ', str(round(scores['BLEU-2'], 2)))
+        print('BLEU-3: ', str(round(scores['BLEU-3'], 2)))
+        print('BLEU-4: ', str(round(scores['BLEU-4'], 2)))
+        print('ROUGE-L: ', str(round(scores['ROUGE-L'], 2)))
+        print('CIDEr: ', str(round(scores['CIDEr'], 2)))
+        print('SPICE: ', str(round(scores['SPICE'], 2)))
 
         return scores
 
-def main():
+def main(args):
 
     # read the config file
     config_file = 'config.json'
@@ -73,7 +78,8 @@ def main():
     # Read the results file
     sent_gt = {}
     sent_gen = {}
-    result_file = 'results/generated_captions_reddit_100000_attn_noun_ner.txt'  #TODO: assign timestamp to file
+    #result_file = '/GW/multimodal_embeddings/static00/reddit/praw/trained_models/run104653_2020_05_15_11_41_23_without_ne_80000/generated_captions_e21.txt'  #TODO: assign timestamp to file
+    result_file = args.result_file
     with open(result_file, 'r') as f:
         idx = 0
         for line in f:
@@ -88,7 +94,8 @@ def main():
     # Obtain the scores
 
     scores = lang_eval.lang_scorer(sent_gt, sent_gen)
-    print(scores)
+    #print(scores)
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    main(args)

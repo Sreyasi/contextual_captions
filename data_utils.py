@@ -17,13 +17,11 @@ config_file = 'config.json'
 config = json.load(open(config_file, 'r'))
 
 data_dir = config['data_dir']
-# image_data_dir = config['image_data_dir']
+image_data_dir = config['image_data_dir']
 train_data_file = config['train_data_file']
 test_data_file = config['test_data_file']
 val_data_file = config['val_data_file']
 image_feat_data_dir = config['image_feat_data_dir']
-
-ne_types = ['GPE', 'PERSON', 'ORG', 'NORP', 'FAC', 'WORK_OF_ART', 'PRODUCT', 'CARDINAL', 'ORDINAL', 'QUANTITY', 'DATE', 'LOC', 'EVENT']
 
 def collate_fn(data):
     """Creates mini-batch tensors from the list of tuples (image, caption).
@@ -88,7 +86,7 @@ def collate_fn(data):
 #     for i, par_noun in enumerate(noun_pos):
 #         end = par_noun_lengths[i]
 #         batch_noun_pos[i, :end] = par_noun[:end]
-      
+#         
 #     for i, par_ner in enumerate(ner_pos):
 #         end = par_ner_lengths[i]
 #         batch_ner_pos[i, :end] = par_ner[:end]
@@ -100,29 +98,19 @@ def collate_fn(data):
 # Create vocabulary
 class Vocabulary():
     def __init__(self):
-        self.w_to_idx = {'<pad>': 0, '<sos>': 1, '<eos>': 2, '<UNK>': 3,  
-                         'GPE': 4, 'PERSON': 5, 'ORG': 6, 'NORP': 7, 'FAC': 8, 'WORK_OF_ART': 9, 'PRODUCT': 10,
-                         'CARDINAL': 11, 'ORDINAL': 12, 'QUANTITY': 13,
-                         'DATE': 14, 'LOC': 15, 'EVENT': 16}
-        self.idx_to_w = {0: '<pad>', 1: '<sos>', 2: '<eos>', 3: '<UNK>',
-                         4: 'GPE', 5: 'PERSON', 6: 'ORG', 7: 'NORP', 8: 'FAC', 9: 'WORK_OF_ART', 10: 'PRODUCT',
-                         11: 'CARDINAL', 12: 'ORDINAL', 13: 'QUANTITY',
-                         14: 'DATE', 15: 'LOC', 16: 'EVENT'}
+        self.w_to_idx = {'<pad>': 0, '<sos>': 1, '<UNK>': 3, '<eos>': 2}
+        self.idx_to_w = {0: '<pad>', 1: '<sos>', 3: '<UNK>', 2: '<eos>'}
         self.vocabulary = []
         # self.personality_to_idx = dict()
-#         self.idx_to_personality = dict()
+        self.idx_to_personality = dict()
         self.w_count = dict()
         self.prepro_data = dict()
 
     def tokenize(self, s):
-#         ne_types = ['GPE', 'PERSON', 'ORG', 'NORP', 'FAC', 'WORK_OF_ART', 'PRODUCT', 'CARDINAL', 'ORDINAL', 'QUANTITY', 'DATE', 'LOC', 'EVENT']
-#         s = s.lower()
+        s = s.lower()
         s = s.strip('\n').strip('\r')
         s = s.replace('"', ' "')
         for w in s.split(' '):
-            if w in ne_types:
-                continue
-            w = w.lower()
             if w not in self.w_count:
                 self.w_count[w] = 1
             else:
@@ -130,7 +118,7 @@ class Vocabulary():
 
     def build_vocab(self, data_file):
         with open(data_file, 'r') as f:
-            data = json.load(f, encoding ='utf8')
+            data = json.load(f, encoding='utf8')
             for idx, doc in enumerate(data):
                 abs_cap = doc['caption']
                 self.tokenize(abs_cap)
@@ -178,23 +166,17 @@ class ProcessSentence():
 
     def vectorize_caption(self, s):
         vec = []
-#         s = s.lower()
+        s = s.lower()
         s = s.strip('\n').strip('\r')
         s = s.replace('"', ' "')
         words = s.split(' ')
         vec.append(self.w_to_idx['<sos>'])
         for w in words:
-            if w in ne_types:
-                idx = idx = self.w_to_idx[w]
-                vec.append(idx)
-                continue
-            w = w.lower()
             if w in self.w_to_idx:
                 idx = self.w_to_idx[w]
                 vec.append(idx)
             else: 
                 vec.append(self.w_to_idx['<UNK>'])
-                
         vec.append(self.w_to_idx['<eos>'])
         length = len(vec)
 
@@ -207,7 +189,7 @@ class ProcessSentence():
         vec = []
         noun_pos_vec = [] # if word is a noun 1, else 0
         ner_pos_vec = [] # if word is a named entity 1, else 0
-#         s = s.lower()
+        s = s.lower()
         s = s.strip('\n').strip('\r')
         s = s.replace('"', ' "')
         words = s.split(' ')
@@ -222,11 +204,6 @@ class ProcessSentence():
         ner_pos_vec.append(0)
         
         for w in words:
-            if w in ne_types:
-                idx = idx = self.w_to_idx[w]
-                vec.append(idx)
-                continue
-            w = w.lower()
             if w in self.w_to_idx:
                 idx = self.w_to_idx[w]
                 vec.append(idx)
@@ -258,7 +235,6 @@ class ProcessSentence():
             length = self.max_par_len
             
 #         return vec, length, noun_pos_vec, ner_pos_vec
-#         return vec, length, noun_pos_vec
         return vec, length
 
 
@@ -278,8 +254,8 @@ class Dataset(Dataset):
             # get image features
             img_id = self.data[idx]['image_hash']
             image_file = os.path.join(image_feat_data_dir, img_id + '.npy')
-            image_vec = torch.from_numpy(np.load(image_file))
-#             image_vec = torch.zeros(1, 2048) # for text-summarization, we reinitialise the image vector as  zeros
+#            image_vec = torch.from_numpy(np.load(image_file))
+            image_vec = torch.zeros(1, 2048) # for text-summarization, we reinitialise the image vector as  zeros
             # print("image vec >>>", image_vec)
     
             # get abstract caption
@@ -288,13 +264,13 @@ class Dataset(Dataset):
             abstract = torch.LongTensor(abstract)
             
             # get paragraph
-#             paragraph, par_len = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
+            paragraph, par_len = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
             # get paragraph and noun/ner position vectors (if word is a noun/ner, 1, else 0)
 #             paragraph, par_len, noun_pos_vec, ner_pos_vec = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
             # get paragraph and noun position vectors (if word is a noun, 1, else 0)
 #             paragraph, par_len, noun_pos_vec = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
             # get paragraph for simple captioning (no paragraph)
-            paragraph, par_len = self.preprocess.vectorize_paragraph("")
+#            paragraph, par_len = self.preprocess.vectorize_paragraph("")
             
             paragraph = torch.LongTensor(paragraph)
 #             noun_pos_vec = torch.LongTensor(noun_pos_vec)

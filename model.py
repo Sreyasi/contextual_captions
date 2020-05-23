@@ -79,7 +79,7 @@ def init_vocab(filename):
         # get save directory
         curtime = datetime.now()
         timestamp = curtime.strftime('%Y_%m_%d_%H_%M_%S')
-        savedir = '{}run{}_{}_with_ne_30000_one_overlap'.format(args.savedir, str(len(data)), timestamp)
+        savedir = '{}run{}_{}_text_sum_with_ne_30000'.format(args.savedir, str(len(data)), timestamp)
         
         if not os.path.exists(savedir):
             os.makedirs(savedir)
@@ -290,10 +290,10 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
     if args.eval != '':
         output_txt = open(os.path.join(
             #TODO save with timestamp
-            save_dir, "generated_captions_e" + str(epoch) + ".txt"), "w+", 
+            save_dir, "generated_captions_e" + str(epoch) + "_user_study.txt"), "w+", 
             encoding='utf-8')
         output_json = os.path.join(save_dir, 
-                                   "test_results_e" + str(epoch) + ".json")
+                                   "test_results_e" + str(epoch) + "_user_study.json")
     else:
         output_txt = open(os.path.join(
             save_dir, "generated_captions_val_e" + str(epoch) + ".txt"), "w+", 
