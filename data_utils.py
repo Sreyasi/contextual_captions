@@ -255,8 +255,8 @@ class Dataset(Dataset):
             # get image features
             img_id = self.data[idx]['image_hash']
             image_file = os.path.join(image_feat_data_dir, img_id + '.npy')
-#            image_vec = torch.from_numpy(np.load(image_file))
-            image_vec = torch.zeros(1, 2048) # for text-summarization, we reinitialise the image vector as  zeros
+            image_vec = torch.from_numpy(np.load(image_file))
+#            image_vec = torch.zeros(1, 2048) # for text-summarization, we reinitialise the image vector as  zeros
             # print("image vec >>>", image_vec)
     
             # get abstract caption
@@ -265,16 +265,20 @@ class Dataset(Dataset):
                 tokens = self.tokenizer.tokenize(abs_cap)
                 abstract = self.tokenizer.convert_tokens_to_ids(tokens)
                 abstract = [self.tokenizer.bos_token_id] + abstract + [self.tokenizer.eos_token_id]
+                if len(abstract) > config['max_cap_len']:
+                  abstract = abstract[0:config['max_cap_len']]
                 length = len(abstract)
             else:
                 abstract, length = self.preprocess.vectorize_caption(abs_cap)
             abstract = torch.LongTensor(abstract)
             
             # get paragraph
-            if self.use_bert_tokenizer:
+            if self.tokenizer is not None:
                 tokens = self.tokenizer.tokenize(self.data[idx]['text'])
                 paragraph = self.tokenizer.convert_tokens_to_ids(tokens)
                 paragraph = [self.tokenizer.bos_token_id] + paragraph + [self.tokenizer.eos_token_id]
+                if len(paragraph) > config['max_par_len']:
+                  paragraph = paragraph[0:config['max_par_len']]
                 par_len = len(paragraph)
             else:
                 paragraph, par_len = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
@@ -301,4 +305,4 @@ class Dataset(Dataset):
 
         except:
             #print(self.data[idx]['image_hash'], self.data[idx]['text'])
-            print("Error reading image: ", image_file)
+            print("Error generating data sample.")

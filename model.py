@@ -79,7 +79,7 @@ def init_vocab(filename):
         # get save directory
         curtime = datetime.now()
         timestamp = curtime.strftime('%Y_%m_%d_%H_%M_%S')
-        savedir = '{}run{}_{}_text_sum_with_ne_30000'.format(args.savedir, str(len(data)), timestamp)
+        savedir = '{}run{}_{}_with_ne_30000_bert'.format(args.savedir, str(len(data)), timestamp)
         
         if not os.path.exists(savedir):
             os.makedirs(savedir)
@@ -403,7 +403,7 @@ def main(flags):
     if args.use_bert_tokenizer:
         # Import pre-trained BERT tokenizer
         from transformers import BertTokenizer, BertModel
-        if args.train or args.train_all or args.prerainG:
+        if args.train or args.train_all or args.pretrainG:
             tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
             special_tokens_dict = {'bos_token': '<sos>', 'eos_token': '<eos>'}
             num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
@@ -412,8 +412,8 @@ def main(flags):
             pretrained_bert.resize_token_embeddings(len(tokenizer))
 
             # Save and Freeze the tokenizer and the pretrained BERT
-            pretrained_bert.save_pretrained(args.save_dir)
-            tokenizer.save_pretrained(args.save_dir)
+            pretrained_bert.save_pretrained(args.savedir)
+            tokenizer.save_pretrained(args.savedir)
         elif args.eval:
             pretrained_bert = BertModel.from_pretrained(args.save_dir)
             tokenizer = BertTokenizer.from_pretrained(args.save_dir)
