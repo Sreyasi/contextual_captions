@@ -340,16 +340,28 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
         print("IMAGE: ", batch_images_file_names[0])
         
         paragraph = batch_paragraph.cpu().numpy()[:, 1:].tolist()
-        paragraph = model_utils.vec_2_text(paragraph, vocab['i2w'])
-        print("TEXT: ", paragraph[0])
+        if args.use_bert_tokenizer:
+            paragraph = tokenizer.decode(paragraph[0], skip_special_tokens=True)
+            print("TEXT: ", paragraph)
+        else:
+            paragraph = model_utils.vec_2_text(paragraph, vocab['i2w'])
+            print("TEXT: ", paragraph[0])
 
         gen_seq = gen_seq.cpu().numpy().tolist()
-        gen_seq = model_utils.vec_2_text(gen_seq, vocab['i2w'])
-        print("GENERATED: ", gen_seq[0])
+        if args.use_bert_tokenizer:
+            gen_seq = tokenizer.decode(gen_seq[0], skip_special_tokens=True)
+            print("GENERATED: ", gen_seq)
+        else:
+            gen_seq = model_utils.vec_2_text(gen_seq, vocab['i2w'])
+            print("GENERATED: ", gen_seq[0])
 
         gt_abstract = batch_abstract.cpu().numpy()[:, 1:].tolist()
-        gt_abstract = model_utils.vec_2_text(gt_abstract, vocab['i2w'])
-        print("GROUND TRUTH: ", gt_abstract[0])
+        if args.use_bert_tokenizer:
+            gt_abstract = tokenizer.decode(gt_abstract[0], skip_special_tokens=True)
+            print("GROUND TRUTH: ", gt_abstract)
+        else:
+            gt_abstract = model_utils.vec_2_text(gt_abstract, vocab['i2w'])
+            print("GROUND TRUTH: ", gt_abstract[0])
 
         output_txt.write(
                 batch_images_file_names[0] + "\t" +  
