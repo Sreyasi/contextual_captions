@@ -62,7 +62,7 @@ def init_vocab(filename):
             
     with open(filename, 'r') as f:
         data = json.load(f, encoding='utf8')
-    fout = '/vocab_' + str(len(data)) + '.pickle'
+    fout = '/vocab_small' + str(len(data)) + '.pickle'
     # Intialize the vocabulary or load generated vocab
     if args.preprocess:
         v = Vocabulary()
@@ -398,7 +398,11 @@ def main(flags):
     
     # generate new vocab or load existing vocab
 #     vocab, save_dir = init_vocab(os.path.join(data_dir, train_data_file))
+    #if not args.use_bert_tokenizer:
     vocab, save_dir = init_vocab(os.path.join(data_dir, whole_data_file))
+
+    #vocab = []
+    #save_dir = args.savedir
 
     if args.use_bert_tokenizer:
         # Import pre-trained BERT tokenizer
@@ -409,6 +413,7 @@ def main(flags):
             num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
             print("INFO: {} new token added to the tokenizer".format(num_added_toks))
             pretrained_bert = BertModel.from_pretrained('bert-base-uncased')
+            pretrained_bert = pretrained_bert.cuda()
             pretrained_bert.resize_token_embeddings(len(tokenizer))
 
             # Save and Freeze the tokenizer and the pretrained BERT
@@ -416,6 +421,7 @@ def main(flags):
             tokenizer.save_pretrained(args.savedir)
         elif args.eval:
             pretrained_bert = BertModel.from_pretrained(args.save_dir)
+            pretrained_bert = pretrained_bert.cuda()
             tokenizer = BertTokenizer.from_pretrained(args.save_dir)
     else:
         tokenizer = None

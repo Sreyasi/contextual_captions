@@ -125,8 +125,7 @@ class ShowTellModel(CaptionModel):
         for t in range(self.config['max_par_len']):
             if pretrained_bert is not None:
                 with torch.no_grad():
-                    #x_t = pretrained_bert.get_input_embeddings(paragraph[:, t]).unsqueeze(1)
-                    x_t = pretrained_bert(paragraph[:, t]).unsqueeze(1)
+                    x_t = pretrained_bert.embeddings.word_embeddings(paragraph[:, t]).unsqueeze(1)
             else:
                 x_t = self.embed(paragraph[:, t]).unsqueeze(1)
 #             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
@@ -168,8 +167,7 @@ class ShowTellModel(CaptionModel):
                 # x_personality = self.pers_embed(personality)
                 if pretrained_bert is not None:
                     with torch.no_grad():
-                        #xt = pretrained_bert.get_input_embeddings(it).unsqueeze(1)
-                        xt = pretrained_bert(it).unsqueeze(1)
+                        xt = pretrained_bert.embeddings.word_embeddings(it).unsqueeze(1)
                 else:
                     xt = self.embed(it).unsqueeze(1)
 
@@ -245,8 +243,7 @@ class ShowTellModel(CaptionModel):
         for t in range(self.config['max_par_len']):
             if pretrained_bert is not None:
                 with torch.no_grad():
-                    #x_t = pretrained_bert.get_input_embeddings(paragraph[:, t]).unsqueeze(1)
-                    x_t = pretrained_bert(paragraph[:, t]).unsqueeze(1)
+                    x_t = pretrained_bert.embeddings.word_embeddings(paragraph[:, t]).unsqueeze(1)
             else:
                 x_t = self.embed(paragraph[:, t]).unsqueeze(1)
 #             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
@@ -264,8 +261,7 @@ class ShowTellModel(CaptionModel):
                 if pretrained_bert is not None and tokenizer is not None:
                     it = torch.LongTensor([tokenizer.bos_token_id]*batch_size).long().cuda()
                     with torch.no_grad():
-                        #xt = pretrained_bert.get_input_embeddings(it).unsqueeze(1)
-                        xt = pretrained_bert(it).unsqueeze(1)
+                        xt = pretrained_bert.embeddings.word_embeddings(it).unsqueeze(1)
                 else:
                     it = torch.ones(batch_size).long().cuda()
                     # x_personality = self.pers_embed(Variable(personality,
@@ -295,8 +291,7 @@ class ShowTellModel(CaptionModel):
                 #                                                  requires_grad=False))
                 if pretrained_bert is not None:
                     with torch.no_grad():
-                        #xt = pretrained_bert.get_input_embeddings(it).unsqueeze(1)
-                        xt = pretrained_bert(it).unsqueeze(1)
+                        xt = pretrained_bert.embeddings.word_embeddings(it).unsqueeze(1)
                 else:
                     xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
                 # xt = torch.cat((x_word, x_personality), 2)
