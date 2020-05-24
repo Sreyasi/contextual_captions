@@ -79,7 +79,7 @@ def init_vocab(filename):
         # get save directory
         curtime = datetime.now()
         timestamp = curtime.strftime('%Y_%m_%d_%H_%M_%S')
-        savedir = '{}run{}_{}_with_ne_30000_bert'.format(args.savedir, str(len(data)), timestamp)
+        savedir = '{}run{}_{}_with_ne_30000_one_overlap_bert'.format(args.savedir, str(len(data)), timestamp)
         
         if not os.path.exists(savedir):
             os.makedirs(savedir)
@@ -290,10 +290,10 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
     if args.eval != '':
         output_txt = open(os.path.join(
             #TODO save with timestamp
-            save_dir, "generated_captions_e" + str(epoch) + "_user_study.txt"), "w+", 
+            save_dir, "generated_captions_e" + str(epoch) + "_bert.txt"), "w+", 
             encoding='utf-8')
         output_json = os.path.join(save_dir, 
-                                   "test_results_e" + str(epoch) + "_user_study.json")
+                                   "test_results_e" + str(epoch) + "_bert.json")
     else:
         output_txt = open(os.path.join(
             save_dir, "generated_captions_val_e" + str(epoch) + ".txt"), "w+", 
@@ -339,7 +339,7 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
    
         print("IMAGE: ", batch_images_file_names[0])
         
-        paragraph = batch_paragraph.cpu().numpy()[:, 1:].tolist()
+        paragraph = batch_paragraph.cpu().numpy()[:, 1:].tolist()        
         if args.use_bert_tokenizer:
             paragraph = tokenizer.decode(paragraph[0], skip_special_tokens=True)
             print("TEXT: ", paragraph)
@@ -435,9 +435,11 @@ def main(flags):
             pretrained_bert.save_pretrained(args.savedir)
             tokenizer.save_pretrained(args.savedir)
         elif args.eval:
-            pretrained_bert = BertModel.from_pretrained(args.save_dir)
+            tokenizer = BertTokenizer.from_pretrained(args.savedir)
+            pretrained_bert = BertModel.from_pretrained(args.savedir)
             pretrained_bert = pretrained_bert.cuda()
-            tokenizer = BertTokenizer.from_pretrained(args.save_dir)
+            pretrained_bert.resize_token_embeddings(len(tokenizer))
+            config['vocab_size'] = len(tokenizer)
     else:
         tokenizer = None
 

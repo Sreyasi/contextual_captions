@@ -248,7 +248,8 @@ class ShowTellModel(CaptionModel):
                 x_t = self.embed(paragraph[:, t]).unsqueeze(1)
 #             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
 #             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1))
-            output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
+            print(x_t.shape) # [1, 1, 512]
+            output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden) # RuntimeError: input.size(-1) must be equal to input_size. Expected 768, got 512
             encoder_state.append(output)
         encoder_state = torch.cat(encoder_state, dim=1)
 
