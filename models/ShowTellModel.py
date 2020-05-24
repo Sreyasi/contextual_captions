@@ -48,7 +48,7 @@ class Attention(nn.Module):
 class ShowTellModel(CaptionModel):
     def __init__(self, config, vocab):
         super(ShowTellModel, self).__init__()
-        self.vocab_size = len(vocab['w2i'])
+        self.vocab_size = config['vocab_size'] # len(vocab['w2i'])
         self.input_encoding_size = config['rnn_input_dim']
         self.rnn_type = config['rnn_type']
         self.rnn_size = config['rnn_hidden_dim']

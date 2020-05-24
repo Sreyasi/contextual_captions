@@ -408,10 +408,13 @@ def main(flags):
         # Import pre-trained BERT tokenizer
         from transformers import BertTokenizer, BertModel
         if args.train or args.train_all or args.pretrainG:
+            print("INFO: The model will use BERT Tokenizer.")
             tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
             special_tokens_dict = {'bos_token': '<sos>', 'eos_token': '<eos>'}
             num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
             print("INFO: {} new token added to the tokenizer".format(num_added_toks))
+            config['vocab_size'] = len(tokenizer)
+            print("INFO: Token vocabulary size ==> {}".format(len(tokenizer)))
             pretrained_bert = BertModel.from_pretrained('bert-base-uncased')
             pretrained_bert = pretrained_bert.cuda()
             pretrained_bert.resize_token_embeddings(len(tokenizer))
