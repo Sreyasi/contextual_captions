@@ -233,7 +233,7 @@ class ShowTellModel(CaptionModel):
 #     def sample(self, fc_feats, paragraph, noun_pos, ner_pos, sample_max=True, temperature=1.0): # extra input - noun_pos, ner_pos- positions of nouns/NEs in paragraph
 #     def sample(self, fc_feats, paragraph, noun_pos, sample_max=True, temperature=1.0): # extra input - noun_pos: positions of nouns in paragraph
 
-    def sample(self, fc_feats, paragraph, sample_max=True, temperature=1.0, pretrained_bert=None, tokenizer=None):
+    def sample(self, fc_feats, paragraph, pretrained_bert=None, tokenizer=None, sample_max=True, temperature=1.0):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
         encoder_hidden = self.init_encoder_hidden(batch_size)
@@ -248,7 +248,6 @@ class ShowTellModel(CaptionModel):
                 x_t = self.embed(paragraph[:, t]).unsqueeze(1)
 #             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
 #             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1))
-            print(x_t.shape) # [1, 1, 512]
             output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden) # RuntimeError: input.size(-1) must be equal to input_size. Expected 768, got 512
             encoder_state.append(output)
         encoder_state = torch.cat(encoder_state, dim=1)

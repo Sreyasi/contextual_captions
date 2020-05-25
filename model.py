@@ -79,7 +79,7 @@ def init_vocab(filename):
         # get save directory
         curtime = datetime.now()
         timestamp = curtime.strftime('%Y_%m_%d_%H_%M_%S')
-        savedir = '{}run{}_{}_with_ne_30000_one_overlap_bert'.format(args.savedir, str(len(data)), timestamp)
+        savedir = '{}run{}_{}_lonelyPlanet_bert'.format(args.savedir, str(len(data)), timestamp)
         
         if not os.path.exists(savedir):
             os.makedirs(savedir)
@@ -324,7 +324,7 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
                 elif args.gen_type == 'showtell':
 #                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos, batch_ner_pos)
 #                     gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, batch_noun_pos)
-                    gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, pretrained_bert, tokenizer)
+                    gen_seq, gen_seq_logprob = g_net.sample(batch_image_feats, batch_paragraph, pretrained_bert=pretrained_bert, tokenizer=tokenizer)
                     val_loss = -torch.mean(gen_seq_logprob)
                     tot_val_loss += val_loss
             elif args.beam:
@@ -365,9 +365,9 @@ def val_model(g_net, data_generator, save_dir, epoch, vocab,
 
         output_txt.write(
                 batch_images_file_names[0] + "\t" +  
-                paragraph[0] +
-                "\t" + gt_abstract[0] +
-                "\t" + gen_seq[0] + "\n")
+                paragraph +
+                "\t" + gt_abstract +
+                "\t" + gen_seq + "\n")
 
         print("-----------------------------------------------")
             
@@ -483,7 +483,7 @@ def main(flags):
 
         if args.use_bert_tokenizer:
             _, _ = val_model(g_net, test_generator, save_dir, g_epoch, vocab,
-                             config['dev_batch_size'], g_writer, pretrained_bert, tokenizer)
+                             config['dev_batch_size'], g_writer, pretrained_bert=pretrained_bert, tokenizer=tokenizer)
         else:
             _,_ = val_model(g_net, test_generator, save_dir, g_epoch, vocab,
                         config['dev_batch_size'], g_writer)
