@@ -1,10 +1,8 @@
-# This file contains ShowAttendTell and AllImg model
+# This file contains ShowAttendTell
 
 # ShowAttendTell is from Show, Attend and Tell: Neural Image Caption Generation with Visual Attention
 # https://arxiv.org/abs/1502.03044
 
-# AllImg is a model where
-# img feature is concatenated with word embedding at every time step as the input of lstm
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function

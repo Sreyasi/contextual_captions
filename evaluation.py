@@ -78,7 +78,6 @@ def main(args):
     # Read the results file
     sent_gt = {}
     sent_gen = {}
-    #result_file = '/GW/multimodal_embeddings/static00/reddit/praw/trained_models/run104653_2020_05_15_11_41_23_without_ne_80000/generated_captions_e21.txt'  #TODO: assign timestamp to file
     result_file = args.result_file
     with open(result_file, 'r') as f:
         idx = 0

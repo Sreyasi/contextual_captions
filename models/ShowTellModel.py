@@ -26,23 +26,12 @@ class Attention(nn.Module):
         self.v.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, encoder_states, decoder_state):
-        # print(encoder_states.size())
-        # print(decoder_state.size())
         encoder_ctx = self.W_h(encoder_states)
-        # print(encoder_ctx.size())
         decoder_ctx = self.W_s(decoder_state)
         decoder_ctx = decoder_ctx.expand_as(encoder_ctx)
-        # print(decoder_ctx.size())
-        # print(self.b_attn.size())
         attn_energy = self.v(encoder_ctx + decoder_ctx + self.b_attn.expand_as(decoder_ctx)).squeeze(2)
-#         attn_energy = self.v(encoder_ctx + decoder_ctx).squeeze(2) #TODO
-        # print(attn_energy.size())
         attn_weights = F.softmax(attn_energy, dim=1).unsqueeze(2)
-        # TODO: hard thresholding - if prob less than x, don't consider
-        # print(attn_weights.size())
         context_vec = torch.sum(encoder_states * attn_weights, dim=1)
-        # print(context_vec.size())
-        # print("----------------------------")
         return context_vec
 
 class ShowTellModel(CaptionModel):
@@ -71,10 +60,6 @@ class ShowTellModel(CaptionModel):
                 self.num_layers, bias=False, dropout=self.drop_prob_rnn,
                 batch_first=True)
         self.embed = nn.Embedding(self.vocab_size, self.emb_dim)
-#         self.noun_embed = nn.Embedding(2, self.emb_dim) # binary noun_pos_vec vector projected to emb_dim
-#         self.ner_embed = nn.Embedding(2, self.emb_dim) # binary ner_pos_vec vector projected to emb_dim
-        # self.pers_embed = nn.Embedding(self.personality_size,
-        #                                self.emb_dim)
         self.attn = Attention(config)
         self.logit = nn.Sequential(nn.Linear(self.rnn_size*3, self.rnn_size),
                                    nn.ReLU(),
@@ -113,8 +98,6 @@ class ShowTellModel(CaptionModel):
             return Variable(weight.new(self.num_layers*2, bsz,
                                        self.rnn_size).zero_(), requires_grad=True)
 
-#     def forward(self, fc_feats, seq, paragraph, noun_pos, ner_pos): # extra input - ner_pos: positions of nouns/NEs
-#     def forward(self, fc_feats, seq, paragraph, noun_pos): # extra input - ner_pos: positions of nouns
     def forward(self, fc_feats, seq, paragraph, pretrained_bert=None):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
@@ -128,12 +111,9 @@ class ShowTellModel(CaptionModel):
                     x_t = pretrained_bert.embeddings.word_embeddings(paragraph[:, t]).unsqueeze(1)
             else:
                 x_t = self.embed(paragraph[:, t]).unsqueeze(1)
-#             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
-#             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1)) # additional emphasis for named entities
             output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
             encoder_state.append(output)
         encoder_state = torch.cat(encoder_state, dim=1)
-        # print(encoder_state.size())
 
         outputs = []
         for i in range(seq.size(1)):
@@ -161,10 +141,6 @@ class ShowTellModel(CaptionModel):
                         it = Variable(it, requires_grad=False)
                 else:
                     it = seq[:, i-1].clone()
-                # break if all the sequences end
-                # if i >= 2 and seq[:, i-1].data.sum() == 0:
-                #     break
-                # x_personality = self.pers_embed(personality)
                 if pretrained_bert is not None:
                     with torch.no_grad():
                         xt = pretrained_bert.embeddings.word_embeddings(it).unsqueeze(1)
@@ -230,9 +206,6 @@ class ShowTellModel(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-#     def sample(self, fc_feats, paragraph, noun_pos, ner_pos, sample_max=True, temperature=1.0): # extra input - noun_pos, ner_pos- positions of nouns/NEs in paragraph
-#     def sample(self, fc_feats, paragraph, noun_pos, sample_max=True, temperature=1.0): # extra input - noun_pos: positions of nouns in paragraph
-
     def sample(self, fc_feats, paragraph, pretrained_bert=None, tokenizer=None, sample_max=True, temperature=1.0):
         batch_size = fc_feats.size(0)
         decoder_hidden = self.init_decoder_hidden(batch_size)
@@ -246,9 +219,7 @@ class ShowTellModel(CaptionModel):
                     x_t = pretrained_bert.embeddings.word_embeddings(paragraph[:, t]).unsqueeze(1)
             else:
                 x_t = self.embed(paragraph[:, t]).unsqueeze(1)
-#             x_t = x_t + self.noun_embed(noun_pos[:, t].unsqueeze(1))
-#             x_t = x_t + self.ner_embed(ner_pos[:, t].unsqueeze(1))
-            output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden) # RuntimeError: input.size(-1) must be equal to input_size. Expected 768, got 512
+            output, encoder_hidden = self.paragraph_encoder(x_t, encoder_hidden)
             encoder_state.append(output)
         encoder_state = torch.cat(encoder_state, dim=1)
 
@@ -264,10 +235,7 @@ class ShowTellModel(CaptionModel):
                         xt = pretrained_bert.embeddings.word_embeddings(it).unsqueeze(1)
                 else:
                     it = torch.ones(batch_size).long().cuda()
-                    # x_personality = self.pers_embed(Variable(personality,
-                    #                                                  requires_grad=False))
                     xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
-                    # xt = torch.cat((x_word, x_personality), 2)
             else:
                 if sample_max:
                     sampleLogprobs, it = torch.max(logprobs.data, 1)
@@ -287,14 +255,11 @@ class ShowTellModel(CaptionModel):
                     # and flatten indices for downstream processing
                     it = it.view(-1).long()
 
-                # x_personality = self.pers_embed(Variable(personality,
-                #                                                  requires_grad=False))
                 if pretrained_bert is not None:
                     with torch.no_grad():
                         xt = pretrained_bert.embeddings.word_embeddings(it).unsqueeze(1)
                 else:
                     xt = self.embed(Variable(it, requires_grad=False)).unsqueeze(1)
-                # xt = torch.cat((x_word, x_personality), 2)
 
             if t >= 2:
                 # stop when all finished

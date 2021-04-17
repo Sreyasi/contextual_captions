@@ -50,50 +50,22 @@ def collate_fn(data):
     batch_images = torch.stack(image_vec, 0).squeeze(1)
 
     # Merge captions (from tuple of 1D tensor to 2D tensor).
+    # Captions in our dataset are not explicit descriptions of the image content. Hence we call them 'abstract captions'.
     abstract_lengths = [len(abs) for abs in abstract]
     batch_abstract = torch.zeros(len(abstract), config['max_cap_len']).long()
     for i, abs in enumerate(abstract):
         end = abstract_lengths[i]
         batch_abstract[i, :end] = abs[:end]
 
-    # descriptive_lengths = [len(desc) for desc in descriptive]
-    # batch_descriptive = torch.zeros(len(descriptive),
-    #                                 config['max_cap_len']).long()
-    # for i, desc in enumerate(descriptive):
-    #     end = descriptive_lengths[i]
-    #     batch_descriptive [i, :end] = desc[:end]
-    #
-    # neg_abstract_lengths = [len(neg_abs) for neg_abs in neg_abstract]
-    # batch_neg_abstract = torch.zeros(len(neg_abstract),
-    #                                  config['max_cap_len']).long()
-    # for i, neg_abs in enumerate(neg_abstract):
-    #     end = neg_abstract_lengths[i]
-    #     batch_neg_abstract[i, :end] = neg_abs[:end]
-
-    # these lengths should be all same...reassigning just to be sure
+    # Paragraph
     par_lengths = [len(par) for par in paragraph]
-#     par_noun_lengths = [len(par_noun) for par_noun in noun_pos]
-#     par_ner_lengths = [len(par_ner) for par_ner in ner_pos]
-    
     batch_paragraph = torch.zeros(len(paragraph), config['max_par_len']).long()
-#     batch_noun_pos = torch.zeros(len(paragraph), config['max_par_len']).long()
-#     batch_ner_pos = torch.zeros(len(paragraph), config['max_par_len']).long()
 
     for i, par in enumerate(paragraph):
         end = par_lengths[i]
         batch_paragraph[i, :end] = par[:end]
-        
-#     for i, par_noun in enumerate(noun_pos):
-#         end = par_noun_lengths[i]
-#         batch_noun_pos[i, :end] = par_noun[:end]
-#         
-#     for i, par_ner in enumerate(ner_pos):
-#         end = par_ner_lengths[i]
-#         batch_ner_pos[i, :end] = par_ner[:end]
 
     return (image_file, batch_images, batch_abstract, batch_paragraph)
-#     return (image_file, batch_images, batch_abstract, batch_paragraph, batch_noun_pos)
-#     return (image_file, batch_images, batch_abstract, batch_paragraph, batch_noun_pos, batch_ner_pos)
     
 # Create vocabulary
 class Vocabulary():
@@ -101,7 +73,6 @@ class Vocabulary():
         self.w_to_idx = {'<pad>': 0, '<sos>': 1, '<UNK>': 3, '<eos>': 2}
         self.idx_to_w = {0: '<pad>', 1: '<sos>', 3: '<UNK>', 2: '<eos>'}
         self.vocabulary = []
-        # self.personality_to_idx = dict()
         self.idx_to_personality = dict()
         self.w_count = dict()
         self.prepro_data = dict()
@@ -122,13 +93,6 @@ class Vocabulary():
             for idx, doc in enumerate(data):
                 abs_cap = doc['caption']
                 self.tokenize(abs_cap)
-
-#                neg_abs_cap = doc['unpaired_abstract_same_per']
-#                if isinstance(neg_abs_cap, list):
-#                    for cap in neg_abs_cap:
-#                        self.tokenize(cap)
-#                else:
-#                    self.tokenize(neg_abs_cap)
 
                 paragraph = doc['text']
                 self.tokenize(paragraph)
@@ -285,23 +249,16 @@ class Dataset(Dataset):
 
             # get paragraph and noun/ner position vectors (if word is a noun/ner, 1, else 0)
 #             paragraph, par_len, noun_pos_vec, ner_pos_vec = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
-            # get paragraph and noun position vectors (if word is a noun, 1, else 0)
-#             paragraph, par_len, noun_pos_vec = self.preprocess.vectorize_paragraph(self.data[idx]['text'])
             # get paragraph for simple captioning (no paragraph)
 #            paragraph, par_len = self.preprocess.vectorize_paragraph("")
             
             paragraph = torch.LongTensor(paragraph)
 #             noun_pos_vec = torch.LongTensor(noun_pos_vec)
 #             ner_pos_vec = torch.LongTensor(ner_pos_vec)
-
-
-            # print("paragraph >>>", paragraph.size())
-            # print("paragraph len >>>", par_len)
             
             # image_file needed for qualitative assessment during inference
             return (image_file, image_vec, abstract, paragraph) # paragraph; simple attention
 #             return (image_file, image_vec, abstract, paragraph, noun_pos_vec, ner_pos_vec) #paragraph, attention on noun and ner
-#             return (image_file, image_vec, abstract, paragraph, noun_pos_vec) #paragraph, attention on noun
 
         except:
             #print(self.data[idx]['image_hash'], self.data[idx]['text'])

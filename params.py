@@ -14,17 +14,8 @@ def parse_args():
     # general parameters
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument(
-            '--pretrainG', action='store_true', default=False,
-            help='Switch this flag on to pre-train the generator network')
-    mode_group.add_argument(
-            '--pretrainD', action='store_true', default=False,
-            help='Switch this flag on to pre-train the discriminator network')
-    mode_group.add_argument(
             '--train', action='store_true', default=False,
             help='Switch this flag on to train the network')
-    mode_group.add_argument(
-            '--train_all', action='store_true', default=False,
-            help='Switch this flag on for creating new vocabulary')
     mode_group.add_argument(
             '--eval', default='', type=str,
             help='Give model file to be evaluated')
@@ -38,20 +29,6 @@ def parse_args():
             '--beam', action='store_true', default=False,
             help='Switch this flag on for beam serach decoding')
 
-    # discriminator specific parameters
-    parser.add_argument(
-            '--dis_type', default='cnn', type=str,
-            help='cnn or rnn or none - both are conditional, none is no dis')
-    parser.add_argument(
-            '--gen_type', default='showtell', type=str,
-            help='showtell or ourshowtell')
-    parser.add_argument(
-            '--dis_classes', default=3, type=int,
-            help='Switch this flag on for creating new vocabulary')
-    parser.add_argument(
-            '--multiAdversarial', action='store_true', default=False,
-            help='Switch this flag on for multi-adversarial training')
-
     # training parameters
     parser.add_argument('--preprocess', action='store_true', default=False,
                         help='Switch this flag on for creating new vocabulary')
@@ -63,12 +40,6 @@ def parse_args():
     parser.add_argument(
             '--resume', nargs='+', default='', type=str,
             help='Give model dir, gen epoch and dis epoch')
-    parser.add_argument(
-            '--use_langeval', action='store_true', default=False,
-            help='Swith this flag on to use language evaluator')
-    parser.add_argument(
-            '--use_rollout', action='store_true', default=False,
-            help='Swith this flag on to use rollout')
     parser.add_argument('--grad_clip', type=float, default=0.1,
                         help='clip gradients at this value')
 

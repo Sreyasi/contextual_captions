@@ -52,21 +52,6 @@ def text_2_vec(textdata, w_to_idx):
         vecdata.append(vec)
     return vecdata
 
-# create labels for dis after smoothing
-def randsel(labeltype):
-    '''
-    selects a random value in [0.7, 1.0] for 1 and [0.0, 0.3] for 0
-    Args:
-        labeltype: (1) True / False (for real/generated captions)
-    Returns:
-        (1) value randomly selected between corresponding ranges for True/False
-    '''
-    val = np.random.rand(1)
-    if labeltype:                
-        return (val * 0.3) + 0.7
-    else:
-        return (val * 0.3) + 0.0
-
 # write seq of tokens to file    
 def write_samples_to_file(samples, filename):
     
@@ -104,53 +89,6 @@ def read_samples_from_file(file):
         data.append(l)
         data_len.append(len(l))
     return data, data_len
-
-def write_dis_input_to_file(flag, epoch, 
-                            real_text, gt_real_probs, 
-                            gen_text, gen_real_probs, 
-                            unpaired_text=None, unpaired_real_probs=None):
-    
-    # Print GT and gen sent that are fed into discriminator and the out prob
-    if flag.pretrainD:
-        output_file_dis_input = open("./discriminator_inputs_pretrain.txt", 
-                                     "a+", encoding='utf-8')
-    elif flag.train:
-        output_file_dis_input = open("./discriminator_inputs_train.txt", 
-                                     "a+", encoding='utf-8')
-    else:
-        raise ValueError('this shouldnt be called otherwise..')
-    
-    output_file_dis_input.write("Epoch " + str(epoch) + "\n")
-    sampleidx = random.sample(range(len(real_text)), 2)
-    
-    output_file_dis_input.write("GROUND TRUTHs:\n")
-    for i in sampleidx:
-        output_file_dis_input.write("Sent: {} \n Prob: {}\n".format(
-                real_text[i],
-                gt_real_probs.tolist()[i]))
-        output_file_dis_input.write("\n_______________________________" + 
-                                    "__________________________\n")
-        output_file_dis_input.flush()
-    
-    output_file_dis_input.write("GENERATED:\n")
-    for i in sampleidx:
-        output_file_dis_input.write("Sent: {} \n Prob: {}\n".format(
-                gen_text[i], 
-                gen_real_probs.tolist()[i]))
-        output_file_dis_input.write("\n_______________________________" + 
-                                    "__________________________\n")
-        output_file_dis_input.flush()
-    
-    if unpaired_text is not None:
-        output_file_dis_input.write("UNPAIRED:\n")
-        for i in sampleidx:
-            output_file_dis_input.write("Sent: {} \n Prob: {}\n".format(
-                    unpaired_text[i], 
-                    unpaired_real_probs.tolist()[i]))
-            output_file_dis_input.write("\n_______________________________" + 
-                                        "__________________________\n")
-            output_file_dis_input.flush()
-    return True
 
 def write_gen_output_to_file(epoch, imagefiles, real_text, gen_text, 
                              final_rewards):
@@ -233,40 +171,15 @@ def _load_model(args, model, config):
     argspath = os.path.join(save_dir, 'gen_args-' + str(g_epoch) + '.json')
     with open(argspath, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
-
-        
-    # if (args.pretrainD or args.train) and dispath is not None:
-    #     print('load Discriminator from ckpt:', dispath)
-    #     ckpt_dis = torch.load(dispath)
-    #
-    #     # load already saved states to the initialized models
-    #     d_net.load_state_dict(ckpt_dis['discriminator'])
-    #     if not args.train:
-    #         d_net.set_optim(config['lr'], config['optimizer'],
-    #                         ckpt_dis['dis_optimizer'])
-    #     d_epoch = ckpt_dis['epoch'] + 1
-    #     d_val_epoch = ckpt_dis['valepoch']
-    #     d_iter = ckpt_dis['niter'] + 1
-    #     d_valiter = ckpt_dis['nvaliter'] + 1
-    #
-    #     disobj = (d_net, d_epoch, d_iter, d_val_epoch, d_valiter)
-    #     # save arguments during resuming
-    #     argspath = os.path.join(save_dir, 'dis_args-' + str(d_epoch) + '.json')
-    #     with open(argspath, 'w') as f:
-    #         json.dump(args.__dict__, f, indent=2)
-    # else:
-    #     disobj = (d_net, 1, 0, 1, 0)
-        
-    
    
-    return genobj, save_dir # disobj, g_writer, d_writer
+    return genobj, save_dir
 
 # Save checkpoints
 def _save_model(args, g_net, g_optim, g_epoch,
                 g_val_epoch, g_iter,
                 g_val_iter, savedir):#gwriter, dwriter, savedir):
     
-    if args.pretrainG or args.train:
+    if args.train:
         # saving generator
         path = os.path.join(savedir, 'gen_e{}.ckpt'.format(g_epoch))
         print('save Generator checkpoint:', path)
@@ -281,22 +194,7 @@ def _save_model(args, g_net, g_optim, g_epoch,
 #                'writer': gwriter
                 }        
         torch.save(ckpt, path)
-    
-#     if (args.pretrainD or args.train) and args.dis_type != 'none':
-#         # saving Discriminator
-#         path = os.path.join(savedir, 'dis_e{}.ckpt'.format(d_epoch))
-#         print('save Discriminator checkpoint:', path)
-#
-#         ckpt = {
-#                 'discriminator': d_net.state_dict(),
-#                 'dis_optimizer': d_net.optimizer.state_dict(),
-#                 'epoch': d_epoch,
-#                 'valepoch': d_val_epoch,
-#                 'niter': d_iter,
-#                 'nvaliter': d_val_iter
-# #                'writer': dwriter
-#                 }
-#         torch.save(ckpt, path)
+
     return True
 
 # know whether gradient is present or not
@@ -338,85 +236,3 @@ def convert_to_json(sentences):
     for i, sent in enumerate(sentences):
         json_sent[i] = [sent]
     return json_sent
-
-def get_lang_eval_scores(lang_eval, ref_sent, gen_sent):
-    '''
-    :param lang_eval: object
-    :param ref_sent: reference sentences in json format
-    :param gen_sent: hypothesis sentences in json format
-    :return: SPIDEr scores
-    '''
-    scores = lang_eval.lang_scorer(ref_sent, gen_sent)
-    return scores
-
-# def write_ref(image_id, ref_sent):
-#     data = {}
-#     data["images"] = []
-#     data["images"].append(
-#         {
-#         "id": image_id,
-#         "file_name": image_id + ".jpg"
-#         }
-#     )
-#     data["annotations"].append(
-#         {
-#         "id": image_id,
-#         "image_id": image_id,
-#         "caption": ref_sent
-#         }
-#     )
-#     with open('ref.json', 'w+') as f:
-#         json.dump(data, f)
-#
-# def write_hyp(image_id, gen_sent):
-#     data = [
-#         {
-#         "image_id": image_id,
-#         "caption": gen_sent
-#         }
-#     ]
-#     with open('hyp.json', 'w+') as f:
-#         json.dump(data, f)
-
-# def get_lang_eval_scores(batch_image_id, batch_ref_sent, batch_gen_sent):
-#     lang_eval_scores = []
-#     for image_id, ref_sent, gen_sent in zip(batch_image_id, batch_ref_sent, batch_gen_sent):
-#         write_ref(image_id, ref_sent)
-#         write_hyp(image_id, gen_sent)
-#         score = lang_scorer()
-#         lang_eval_scores.append(score)
-#     return lang_eval_scores
-
-## ***** Saving model ********
-#def save_model(args, savedir, g_net, d_net, epoch, final=False):
-#
-#    # is this final epoch or not
-#    if final:
-#        savedir = ''
-#        epochnum = ''
-#    else:
-#        epochnum = '-e{}'.format(epoch)
-#    
-#    # actually save        
-#    if args.pretrainG:
-#        print("Pre-training generator network")
-#        path = os.path.join(savedir, 
-#                            './pretrained-generator{}.pth'.format(epochnum))
-#        torch.save(g_net.state_dict(), path)
-#        
-#    elif args.pretrainD:
-#        print("Pre-training discriminator network")
-#        path = os.path.join(savedir, 
-#                            './pretrained-discriminator{}.pth'.format(epochnum))
-#        torch.save(d_net.state_dict(), path)
-#
-#    elif args.train:
-#        print("Training generator and discriminator network")
-#        path = os.path.join(savedir, './generator{}.pth'.format(epochnum))
-#        torch.save(g_net.state_dict(), path)
-#        path = os.path.join(savedir, './discriminator{}.pth'.format(epochnum))
-#        torch.save(d_net.state_dict(), path)
-#    else:
-#        raise ValueError('train, pretrainG or pretrainD should be True')
-#
-#    return True

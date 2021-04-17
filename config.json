@@ -1,7 +1,7 @@
 {
-  "data_dir": "/GW/multimodal_embeddings/static00/reddit/praw/data/with_ne",
-  "image_data_dir": "/GW/multimodal_embeddings/static00/reddit/praw/downloads/images",
-  "image_feat_data_dir": "/GW/multimodal_embeddings/static00/reddit/praw/image_feats/resnet152/",
+  "data_dir": "./data/with_ne",
+  "image_data_dir": "./images",
+  "image_feat_data_dir": "./image_feats/resnet152/",
   "train_data_file": "train_30000.json",
   "test_data_file": "test_8000.json",
   "val_data_file": "val_8000.json",

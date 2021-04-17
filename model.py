@@ -62,7 +62,7 @@ def init_vocab(filename):
             
     with open(filename, 'r') as f:
         data = json.load(f, encoding='utf8')
-    fout = '/vocab_small' + str(len(data)) + '.pickle'
+    fout = './data/vocab.pickle'
     # Intialize the vocabulary or load generated vocab
     if args.preprocess:
         v = Vocabulary()
@@ -73,7 +73,6 @@ def init_vocab(filename):
 
     print("Vocabulary size = {}".format(len(vocab['vocab'])))
     config['vocab_size'] = len(vocab['vocab'])
-    # print("# of Personalities = {}".format(len(vocab['p2i'])))
     
     if args.eval == '' and args.resume == '':
         # get save directory
@@ -84,13 +83,8 @@ def init_vocab(filename):
         if not os.path.exists(savedir):
             os.makedirs(savedir)
         # save arguments 
-        if args.pretrainG or args.train:
+        if args.train:
             argspath = os.path.join(savedir, 'gen_args-1.json')
-        if not os.path.exists(argspath):
-            with open(argspath, 'w') as f:
-                json.dump(args.__dict__, f, indent=2)
-        if args.pretrainD or args.train:
-            argspath = os.path.join(savedir, 'dis_args-1.json')
         if not os.path.exists(argspath):
             with open(argspath, 'w') as f:
                 json.dump(args.__dict__, f, indent=2)
@@ -129,74 +123,31 @@ def get_datagen(vocab, tokenizer):
 
 
 def init_models(vocab):
-       
-    # initialize generator and discriminator models
-
-    # if args.dis_type == 'cnn':
-    #     d_net = CNNDiscriminator(vocab)
-    # elif args.dis_type == 'rnn':
-    #     d_net = RNNDiscriminator(vocab)
-    # elif args.dis_type == 'none':
-    #     d_net = None
-    #     print('Discriminator type is NONE.')
-    # else:
-    #     raise ValueError('only cnn or rnn discriminators supported')
     
     if args.gen_type == 'showtell':
         g_net = ShowTellModel(config, vocab)
-        global g_optim, nll_criterion #, adv_criterion
+        global g_optim, nll_criterion
         g_optim = optim.Adam(g_net.parameters(), lr=config['lr'])
-        nll_criterion = nn.NLLLoss() # ignore_index=0
-        # adv_criterion = AdversarialLoss()
-    # elif args.gen_type == 'ourshowtell':
-    #     g_net = Generator(vocab)
-    #     g_net.set_optim(lr=config['lr'], optimizer='Adam')
+        nll_criterion = nn.NLLLoss()
     else:
         raise ValueError('only showtell supported for now!')
         
     if USE_CUDA: 
         g_net = g_net.cuda()
-    # if USE_CUDA and args.dis_type != 'none':
-    #     d_net = d_net.cuda()
-
-    # if args.dis_type != 'none':
-    #     d_net.set_optim(lr=config['lr'], optimizer='Adam')
-
-    # Initilize the language Evaluator
-    # ref_file = os.path.join(config['data_dir'], config['train_data_file'])
-    # lang_eval = LangEval(ref_file)
     
-    # Initilize rollout
-    # rollout = Rollout(g_net, 0.8)
-    return g_net,  g_optim # d_net, lang_eval, rollout,
+    return g_net,  g_optim
 
 
-def pretrain_generator(g_net, traindata, pretrained_bert=None, tokenizer=None):
-    '''
-    Pretraining part of the gen using MLE 
-    Args:
-        g_net           : Generator object
-        image_vec       : (batchsize, img_feat_dim) image vec
-        gt_captions     : (batchsize, seqlen) of corresponding captions
-        personalityinput: (batchsize, 1) of corresponding personality tokens
-    Returns:
-        loss            : generator loss for the input batch of samples
-    '''
-#     image_files, img_vec, gt_caps, paragraph, noun_pos, ner_pos = traindata
-#     image_files, img_vec, gt_caps, paragraph, noun_pos = traindata
+def train_generator(g_net, traindata, pretrained_bert=None, tokenizer=None):
+
     image_files, img_vec, gt_caps, paragraph = traindata
-    # print(paragraph.size())
     if args.gen_type == 'ourshowtell':
         batch_loss = g_net((img_vec, gt_caps, paragraph), args)
     elif args.gen_type == 'showtell':
-#         logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos, ner_pos)
-#         logprobs = g_net.forward(img_vec, gt_caps, paragraph, noun_pos)
         logprobs = g_net.forward(img_vec, gt_caps, paragraph, pretrained_bert)
-        # print(logprobs.size())
         _, seq_len, _ = logprobs.size()
         target = gt_caps[:, 1:].reshape(-1) # Shift the target by 1 place
         batch_loss = nll_criterion(logprobs.view(-1, config['vocab_size']), target)
-        # print(batch_loss)
         # backpropgate the loss
         g_optim.zero_grad()
         batch_loss.backward()
@@ -207,33 +158,11 @@ def pretrain_generator(g_net, traindata, pretrained_bert=None, tokenizer=None):
     return batch_loss
 
 
-# ***** Main function to train the GAN model ********
+# ***** Main function to train the model ********
 def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab, pretrained_bert=None, tokenizer=None):
-    '''
-    Main function to train the GAN model
-    Args:
-        epoch            : epoch number
-        batch_images     : (batchsize, channels, w, h) images
-        batch_abstract   : (batchsize, seqlen) of corresponding captions
-        abstract_lengths : (batchsize, 1) of actual length of sentences
-        batch_personality: (batchsize, 1) of corresponding personality tokens
-        g_net            : Generator model
-        d_net            : Discriminator model
-        rollout          : Rollout function
-        args             : Bool object to determine the process
-        writer           : tensorboard writer object 
-    Returns:
-        generator_loss    : loss of generator during pretraining/training
-        discriminator_loss: loss of dis during pretraining/training
-        
-    '''
+    
     num_batches = 0
     epoch_loss_g = 0.0
-    epoch_loss_d = 0.0
-#     for (imagefiles, batch_images, batch_abstract,
-#          batch_paragraph, batch_noun_pos_vec, batch_ner_pos_vec) in tqdm(train_data_generator):
-#     for (imagefiles, batch_images, batch_abstract,
-#          batch_paragraph, batch_noun_pos_vec) in tqdm(train_data_generator):
     for (imagefiles, batch_images, batch_abstract,
          batch_paragraph) in tqdm(train_data_generator):
 
@@ -241,42 +170,25 @@ def train_model(train_data_generator, g_net, g_epoch, giter,  gwriter,  vocab, p
         if USE_CUDA:
             batch_images = batch_images.cuda()
             batch_abstract = batch_abstract.cuda()
-            # batch_unpaired = batch_unpaired.cuda()
             batch_paragraph = batch_paragraph.cuda()
-#             batch_noun_pos_vec = batch_noun_pos_vec.cuda()
-#             batch_ner_pos_vec = batch_ner_pos_vec.cuda()
-        
-#         train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph, batch_noun_pos_vec, batch_ner_pos_vec) #batch_unpaired
-#         train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph, batch_noun_pos_vec) #batch_unpaired
+
         train_data = (imagefiles, batch_images, batch_abstract, batch_paragraph) #batch_unpaired
 
         
         # train model
-        # Pre-Train Generator
-        if args.pretrainG:
-            batch_loss_g = pretrain_generator(g_net, train_data, pretrained_bert, tokenizer)
-            # batch_loss_d = 0.0
+        if args.train:
+            batch_loss_g = train_generator(g_net, train_data, pretrained_bert, tokenizer)
             giter += 1 
             
         epoch_loss_g += batch_loss_g
-        # epoch_loss_d += batch_loss_d
         num_batches += 1
 
         # write losses to tensorboard for plots
-        if args.pretrainG:
+        if args.train:
             gwriter.add_scalar('train_g_loss', batch_loss_g,
                               giter)
-        # elif args.pretrainD:
-        #     dwriter.add_scalar('train_d_loss', batch_loss_d,
-        #                       diter)
-        # elif args.train:
-        #     gwriter.add_scalar('train_g_loss', batch_loss_g,
-        #                       giter)
-        #     gwriter.add_scalar('mean_batch_rewward', mean_batch_reward, giter)
-        #     dwriter.add_scalar('train_d_loss', batch_loss_d,
-        #                       diter)
+
     epoch_loss_g = epoch_loss_g / num_batches
-    # epoch_loss_d = epoch_loss_d / num_batches
         
     return epoch_loss_g, giter, gwriter
     
@@ -408,9 +320,6 @@ def main(flags):
     
     init_config()
     
-    # generate new vocab or load existing vocab
-#     vocab, save_dir = init_vocab(os.path.join(data_dir, train_data_file))
-    #if not args.use_bert_tokenizer:
     vocab, save_dir = init_vocab(os.path.join(data_dir, whole_data_file))
 
     #vocab = []
@@ -419,7 +328,7 @@ def main(flags):
     if args.use_bert_tokenizer:
         # Import pre-trained BERT tokenizer
         from transformers import BertTokenizer, BertModel
-        if args.train or args.train_all or args.pretrainG:
+        if args.train:
             print("INFO: The model will use BERT Tokenizer.")
             tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
             special_tokens_dict = {'bos_token': '<sos>', 'eos_token': '<eos>'}
@@ -447,8 +356,8 @@ def main(flags):
     # initalize training, val and test data generators
     train_generator, val_generator, test_generator = get_datagen(vocab, tokenizer)
     
-    # get the models, optimizers, config, rollout and langeval initialized
-    g_net,  g_optim = init_models(vocab) #d_net, lang_eval, rollout,
+    # get the models, optimizers, config initialized
+    g_net,  g_optim = init_models(vocab)
 
     # Print the trainable parameters
     print("***** Trainable params ****")
@@ -462,19 +371,13 @@ def main(flags):
     if args.eval != '' or args.resume != '':
         (gen_stuff, save_dir) = model_utils._load_model(args, g_net, config)
         g_net, g_epoch, g_niter, g_val_epoch, g_val_iter = gen_stuff
-        # d_net, d_epoch, d_niter, d_val_epoch, d_val_iter = dis_stuff
 
     else:
         g_epoch = 1
-        # d_epoch = 1
         g_val_epoch = 1
-        # d_val_epoch = 1
         g_niter = 0
-        # d_niter = 0
         g_val_iter = 0
-        # d_val_iter = 0
     g_writer = SummaryWriter(save_dir)
-    # d_writer = SummaryWriter(save_dir)
         
     print('saving directory: {}'.format(save_dir))
     
@@ -489,12 +392,8 @@ def main(flags):
                         config['dev_batch_size'], g_writer)
 
     else:
-        if args.pretrainG:
-            print("Pre-training generator network")
-        # elif args.pretrainD:
-        #     print("Pre-training discriminator network")
-        # elif args.train:
-        #     print("Jointly training generator and discriminator network")
+        if args.train:
+            print("Training generator network")
         else:
             raise ValueError('none of the modes are ON. Check..')
 
@@ -504,21 +403,19 @@ def main(flags):
             
             # train model for 1 epoch
             if args.use_bert_tokenizer:
-                (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net, #d_net,
-                                                   #rollout, lang_eval,
-                                                   g_epoch, #d_epoch,
-                                                   g_niter, #d_niter,
-                                                   g_writer, #d_writer,
+                (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net,
+                                                   g_epoch,
+                                                   g_niter,
+                                                   g_writer,
                                                    vocab, pretrained_bert, tokenizer)
             else:
-                (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net,  # d_net,
-                                                                # rollout, lang_eval,
-                                                                g_epoch,  # d_epoch,
-                                                                g_niter,  # d_niter,
-                                                                g_writer,  # d_writer,
+                (epoch_loss_g, g_niter, g_writer) = train_model(train_generator, g_net,
+                                                                g_epoch,
+                                                                g_niter,
+                                                                g_writer,
                                                                 vocab)
                 # validate model every val_freq epochs
-            # if epoch % args.val_freq == 0 and (args.pretrainG or args.train):
+            # if epoch % args.val_freq == 0 and (args.train):
             #
             #     g_val_epoch += 1
             #     print('-' * 60)
@@ -535,63 +432,28 @@ def main(flags):
             # save model every save_freq epochs and at last epoch
             if epoch % args.save_freq == 0 or epoch == int(args.epoch):
 
-                model_utils._save_model(args, g_net, #d_net,
+                model_utils._save_model(args, g_net,
                                         g_optim,
-                                        g_epoch, #d_epoch,
-                                        g_val_epoch, #d_val_epoch ,
-                                        g_niter, #d_niter,
-                                        g_val_iter, #d_val_iter,
+                                        g_epoch,
+                                        g_val_epoch,
+                                        g_niter,
+                                        g_val_iter,
                                         save_dir)
-            # update rollout if necessary
-            # if args.train and args.use_rollout:
-            #     rollout.update_params()
             
             # print loss
             print("GenEpoch = {}, Gen Loss = {}".format(g_epoch, epoch_loss_g))
-            # print("DisEpoch = {}, Dis Loss = {}".format(d_epoch, epoch_loss_d))
             
             # log loss values and increase epoch number by 1
-            if args.pretrainG:
+            if args.train:
                 g_writer.add_scalar('train_g_epoch_loss', epoch_loss_g,
                                   g_epoch)
                 g_epoch += 1
                 
     g_writer.close()
-    # d_writer.close()
             
-    return save_dir, g_epoch #, d_epoch
+    return save_dir, g_epoch
 
 if __name__ == '__main__':
 
     args = parse_args()
-
-    if args.train_all:
-
-        modargs = args
-        # pretraining gen
-        modargs.pretrainG = True
-        modargs.pretrainD = False
-        modargs.train = False
-        modargs.epoch = 20
-        savedir, g_epoch, d_epoch = main(modargs)
-        
-        # pretraining Dis
-        if modargs.dis_type != 'none':
-            modargs = args
-            modargs.pretrainG = False
-            modargs.pretrainD = True
-            modargs.train = False
-            modargs.epoch = 2
-            modargs.resume = [savedir, 'gen_e{}.ckpt'.format(g_epoch - 1)]
-            savedir, g_epoch, d_epoch = main(modargs)
-        
-        # training both
-        modargs = args
-        modargs.pretrainG = False
-        modargs.pretrainD = False
-        modargs.train = True
-        modargs.epoch = 20
-        modargs.resume = [savedir, 'gen_e{}.ckpt'.format(g_epoch - 1)]
-        savedir, g_epoch, d_epoch = main(modargs)
-    else:
-        main(args)
+    main(args)
