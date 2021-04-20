@@ -3,6 +3,8 @@
 Modern web content – news articles, blog posts, educational resources, marketing brochures – is predominantly multimodal. A notable trait is the inclusion of media such as images placed at meaningful locations within a textual narrative. Most often, such images are accompanied by captions – either factual or stylistic (humorous, metaphorical, etc.) – making the narrative more engaging to the reader. While standalone image captioning has been extensively studied, captioning an
 image based on external knowledge such as its surrounding text remains under-explored. In this work, we study this new task: given an image and an associated unstructured knowledge snippet, the goal is to generate a contextual caption for the image.
 
+Paper: https://www.aclweb.org/anthology/2021.lantern-1.3/
+
 ## Prerequisites
 
 Python 3.6
@@ -34,14 +36,20 @@ We use the MSCOCO automatic caption evaluation tool for evaluation. The correcpo
 ## Citation
 
 ```
-@inproceedings{DBLP:conf/eacl/NagChowdhuryLANTERN21,
-  author    = {Sreyasi {Nag Chowdhury} and
-               Rajarshi Bhowmik and
-               Harish Ravi and
-			   Gerard de Melo and
-			   Simon Razniewski and
-               Gerhard Weikum},
-  title     = {Exploiting Image-Text Synergy for Contextual Image Captioning},
-  booktitle = {The Third Workshop Beyond Vision and LANguage: inTEgrating Real-world kNowledge. EACL Workshop LANTERN 2021}
+@inproceedings{nag-chowdhury-etal-2021-exploiting,
+    title = "Exploiting Image{--}Text Synergy for Contextual Image Captioning",
+    author = "Nag Chowdhury, Sreyasi  and
+      Bhowmik, Rajarshi  and
+      Ravi, Hareesh  and
+      de Melo, Gerard  and
+      Razniewski, Simon  and
+      Weikum, Gerhard",
+    booktitle = "Proceedings of the Third Workshop on Beyond Vision and LANguage: inTEgrating Real-world kNowledge (LANTERN)",
+    month = apr,
+    year = "2021",
+    address = "Kyiv, Ukraine",
+    publisher = "Association for Computational Linguistics",
+    url = "https://www.aclweb.org/anthology/2021.lantern-1.3",
+    pages = "30--37"
 }
 ```
